@@ -1,6 +1,9 @@
 import { config as dotenvConfig } from "dotenv";
 dotenvConfig(); // loads .env before any other module reads process.env
 
+import { bootstrapDb } from "./db/index.js";
+bootstrapDb(); // create tables on first run, no-op on subsequent starts
+
 import express  from "express";
 import cors     from "cors";
 import { config }         from "./config.js";

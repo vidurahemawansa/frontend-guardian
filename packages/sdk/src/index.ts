@@ -66,8 +66,9 @@ export type {
   ScalabilityEvidence,
 } from "./scalabilityAnalyzer.js";
 
-// ─── SDK Class (for advanced / framework integrations) ────────────────────────
+// ─── SDK Class + User Identification ──────────────────────────────────────────
 export { FrontendGuardianSDK } from "./sdk.js";
+export type { GuardianUser }   from "./sdk.js";
 
 // ─── Public Types ─────────────────────────────────────────────────────────────
 export type {

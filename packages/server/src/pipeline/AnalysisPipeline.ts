@@ -13,6 +13,8 @@ import { RuleEngine }                    from "../engine/RuleEngine.js";
 import { HealthScoreEngine }             from "../engine/HealthScore.js";
 import type { HealthScoreCard, CategoryKey } from "../engine/HealthScore.js";
 import { config }                        from "../config.js";
+import { generateId }                    from "../utils/id.js";
+import { AlertManager }                 from "../alerts/AlertManager.js";
 
 const healthScoreEngine = new HealthScoreEngine();
 
@@ -30,18 +32,37 @@ const healthScoreEngine = new HealthScoreEngine();
  *   getProjectHealth()      → overall health summary for the last N ms
  */
 export class AnalysisPipeline {
+  private readonly alertManager: AlertManager;
+
   constructor(
     private readonly eventStore:    EventStore,
     private readonly analysisStore: AnalysisStore,
     private readonly ruleEngine:    RuleEngine,
     private readonly aiProvider:    AiProvider,   // ← interface only, never a concrete class
-  ) {}
+  ) {
+    this.alertManager = new AlertManager(
+      {
+        slackWebhook: config.alertSlackWebhook || undefined,
+        webhookUrl:   config.alertWebhookUrl   || undefined,
+        minSeverity:  config.alertMinSeverity,
+        cooldownMs:   config.alertCooldownMs,
+      },
+      config.dashboardUrl,
+    );
+    if (this.alertManager.enabled) {
+      console.log(`[Guardian Server] Alerting enabled (min severity: ${config.alertMinSeverity})`);
+    }
+  }
 
   // ─── 1. process / processBatch ─────────────────────────────────────────────
 
-  process(event: GuardianEvent, sessionId: string): AnalysisRecord {
+  process(
+    event: GuardianEvent,
+    sessionId: string,
+    user?: { id?: string; email?: string; username?: string },
+  ): AnalysisRecord {
     // Store
-    this.eventStore.save(event, sessionId);
+    this.eventStore.save(event, sessionId, user ? { id: user.id, email: user.email, name: user.username } : undefined);
 
     // Build events window: history (oldest→newest) + current at the end
     const history = this.eventStore
@@ -62,6 +83,7 @@ export class AnalysisPipeline {
     const aiWillRun = this.aiProvider.available;
 
     const record: AnalysisRecord = {
+      id:               generateId(),
       eventId:          event.id,
       status:           aiWillRun ? "ai_pending"
                       : issues.length === 0 ? "ai_disabled" : "rule_complete",
@@ -73,6 +95,14 @@ export class AnalysisPipeline {
       updatedAt:        now,
     };
     this.analysisStore.save(record);
+
+    // Fire-and-forget alerts (non-blocking)
+    if (issues.length > 0) {
+      const storedEv = this.eventStore.getById(event.id);
+      if (storedEv) {
+        void this.alertManager.notify(issues, storedEv);
+      }
+    }
 
     // Fire-and-forget AI deep analysis
     if (aiWillRun) {
@@ -98,8 +128,12 @@ export class AnalysisPipeline {
     return record;
   }
 
-  processBatch(events: GuardianEvent[], sessionId: string): AnalysisRecord[] {
-    return events.map((e) => this.process(e, sessionId));
+  processBatch(
+    events: GuardianEvent[],
+    sessionId: string,
+    user?: { id?: string; email?: string; username?: string },
+  ): AnalysisRecord[] {
+    return events.map((e) => this.process(e, sessionId, user));
   }
 
   // ─── 2. explainIssue ───────────────────────────────────────────────────────

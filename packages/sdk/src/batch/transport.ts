@@ -1,13 +1,15 @@
 import type { GuardianEvent, BatchPayload, BatchResponse, Environment } from "@frontend-guardian/types";
 import { SDK_VERSION } from "../config.js";
 import { now } from "../utils.js";
+import type { GuardianUser } from "../sdk.js";
 
 export interface TransportOptions {
-  apiUrl: string;
-  apiKey: string;
+  apiUrl:      string;
+  apiKey:      string;
   environment: Environment;
-  sessionId: string;
-  debug: boolean;
+  sessionId:   string;
+  debug:       boolean;
+  user?:       GuardianUser;
 }
 
 /**
@@ -17,12 +19,13 @@ export async function sendBatch(
   events: GuardianEvent[],
   opts: TransportOptions
 ): Promise<BatchResponse | null> {
-  const payload: BatchPayload = {
+  const payload: BatchPayload & { user?: GuardianUser } = {
     events,
     sessionId: opts.sessionId,
     environment: opts.environment,
     sdkVersion: SDK_VERSION,
     sentAt: now(),
+    ...(opts.user ? { user: opts.user } : {}),
   };
 
   const url = `${opts.apiUrl}/batch`;

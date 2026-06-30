@@ -1,0 +1,51 @@
+{
+  "name": "frontend-guardian",
+  "version": "0.1.0",
+  "description": "Frontend Guardian — AI-powered error monitoring, performance tracking, and scalability analysis for any web app",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types":   "./dist/index.d.ts",
+      "import":  "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build":     "tsup",
+    "dev":       "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean":     "rm -rf dist"
+  },
+  "dependencies": {
+    "@frontend-guardian/sdk":   "*",
+    "@frontend-guardian/types": "*"
+  },
+  "devDependencies": {
+    "tsup":       "*",
+    "typescript": "*"
+  },
+  "repository": {
+    "type":      "git",
+    "url":       "git+https://github.com/vidurahemawansa/frontend-guardian.git",
+    "directory": "packages/guardian"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "frontend",
+    "monitoring",
+    "error-tracking",
+    "performance",
+    "scalability",
+    "sdk",
+    "browser",
+    "analytics",
+    "sentry-alternative"
+  ],
+  "homepage": "https://github.com/vidurahemawansa/frontend-guardian#readme"
+}

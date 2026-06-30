@@ -50,13 +50,17 @@ jobs:
       - name: Prepare package versions
         run: node scripts/prepare-publish.js ${{ steps.version.outputs.VERSION }}
 
-      # 6. Build packages in dependency order (types must be built first)
+      # 6. Build packages in dependency order
       - name: Build @frontend-guardian/types
         working-directory: packages/types
         run: npm run build
 
       - name: Build @frontend-guardian/sdk
         working-directory: packages/sdk
+        run: npm run build
+
+      - name: Build frontend-guardian (meta-package)
+        working-directory: packages/guardian
         run: npm run build
 
       # 7. Publish types first (sdk depends on it)
@@ -79,6 +83,19 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           if npm view @frontend-guardian/sdk@$VERSION version 2>/dev/null; then
             echo "⏭️  @frontend-guardian/sdk@$VERSION already published, skipping."
+          else
+            npm publish --provenance --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # 9. Publish meta-package (frontend-guardian)
+      - name: Publish frontend-guardian
+        working-directory: packages/guardian
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view frontend-guardian@$VERSION version 2>/dev/null; then
+            echo "⏭️  frontend-guardian@$VERSION already published, skipping."
           else
             npm publish --provenance --access public
           fi

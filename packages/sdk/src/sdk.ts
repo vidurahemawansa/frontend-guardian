@@ -8,6 +8,17 @@ import { classifyFetchSpan } from "./classifiers/index.js";
 import { EventQueue } from "./batch/queue.js";
 import { sendBatch, sendBatchBeacon } from "./batch/transport.js";
 
+export interface GuardianUser {
+  /** Your app's user ID */
+  id?:       string;
+  /** User's email address */
+  email?:    string;
+  /** Display name */
+  username?: string;
+  /** Any extra fields */
+  [key: string]: unknown;
+}
+
 export class FrontendGuardianSDK {
   private readonly cfg: ResolvedConfig;
   private readonly sessionId: string;
@@ -17,6 +28,7 @@ export class FrontendGuardianSDK {
   private readonly perf: PerformanceCollector;
   private started = false;
   private readonly unloadHandler: () => void;
+  private currentUser: GuardianUser | null = null;
 
   constructor(config: FrontendGuardianConfig) {
     this.cfg = resolveConfig(config);
@@ -98,6 +110,29 @@ export class FrontendGuardianSDK {
     return this.captureError(new Error(message), extras);
   }
 
+  /**
+   * Identify the current user.
+   * All events sent after this call will include the user context.
+   *
+   * @example
+   * guardian.setUser({ id: 'u_123', email: 'alice@example.com', username: 'alice' });
+   */
+  setUser(user: GuardianUser): void {
+    this.currentUser = user;
+    this.log("User set:", user.id ?? user.email ?? "anonymous");
+  }
+
+  /** Clear the current user (e.g. on logout). */
+  clearUser(): void {
+    this.currentUser = null;
+    this.log("User cleared");
+  }
+
+  /** Returns the currently identified user, or null. */
+  getUser(): GuardianUser | null {
+    return this.currentUser;
+  }
+
   /** Force-flush the event queue right now (useful in tests / after navigation). */
   flush(): Promise<void> {
     return this.queue.flush();
@@ -128,6 +163,7 @@ export class FrontendGuardianSDK {
       environment: this.cfg.environment,
       sessionId: this.sessionId,
       debug: this.cfg.debug,
+      ...(this.currentUser ? { user: this.currentUser } : {}),
     });
     if (result && this.cfg.debug) {
       console.debug(`[FrontendGuardian] Batch ack: +${result.accepted} -${result.rejected}`);

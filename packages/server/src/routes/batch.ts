@@ -16,12 +16,19 @@ const GuardianEventSchema = z.object({
   sessionId: z.string().optional(),
 }).passthrough();
 
+const UserSchema = z.object({
+  id:       z.string().optional(),
+  email:    z.string().optional(),
+  username: z.string().optional(),
+}).passthrough();
+
 const BatchBodySchema = z.object({
-  events:     z.array(GuardianEventSchema).min(1).max(500),
-  sessionId:  z.string(),
+  events:      z.array(GuardianEventSchema).min(1).max(500),
+  sessionId:   z.string(),
   environment: z.string().optional(),
   sdkVersion:  z.string().optional(),
   sentAt:      z.string().optional(),
+  user:        UserSchema.optional(),
 });
 
 // ── POST /batch ───────────────────────────────────────────────────────────────
@@ -38,8 +45,8 @@ batchRouter.post("/", (req, res) => {
     return;
   }
 
-  const { events, sessionId } = parsed.data;
-  const records = pipeline.processBatch(events as GuardianEvent[], sessionId);
+  const { events, sessionId, user } = parsed.data;
+  const records = pipeline.processBatch(events as GuardianEvent[], sessionId, user);
 
   const issueCount = records.reduce((sum, r) => sum + r.ruleResults.length, 0);
 

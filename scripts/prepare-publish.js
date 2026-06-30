@@ -28,6 +28,7 @@ console.log(`Preparing publish for version: ${version}`);
 const PUBLIC_PACKAGES = [
   "packages/types",
   "packages/sdk",
+  "packages/guardian",   // meta-package: "npm install frontend-guardian"
 ];
 
 const SCOPE = "@frontend-guardian";

@@ -1,89 +1,112 @@
+import { desc, eq, sql } from "drizzle-orm";
+import { db, schema } from "../db/index.js";
 import type { GuardianEvent } from "@frontend-guardian/types";
 
 export interface StoredEvent {
-  event: GuardianEvent;
-  receivedAt: string; // ISO-8601
-  sessionId: string;
+  event:      GuardianEvent;
+  receivedAt: string;
+  sessionId:  string;
+  user?: {
+    id?:    string;
+    email?: string;
+    name?:  string;
+  };
 }
 
 /**
- * Bounded in-memory event store backed by a circular buffer.
- *
- * - O(1) insert / lookup by id
- * - O(n) listing (n = stored events, bounded by maxSize)
- * - Oldest events are evicted when the buffer is full
+ * SQLite-backed event store.
+ * Public interface is identical to the old in-memory version —
+ * nothing else in the codebase needs to change.
  */
 export class EventStore {
-  private readonly maxSize: number;
-  /** Ordered insertion ring – index 0 = oldest */
-  private readonly ring: StoredEvent[] = [];
-  /** Fast id → StoredEvent lookup */
-  private readonly index = new Map<string, StoredEvent>();
-  /** Session id → set of event ids */
-  private readonly sessions = new Map<string, Set<string>>();
-
-  constructor(maxSize: number) {
-    this.maxSize = maxSize;
-  }
-
-  save(event: GuardianEvent, sessionId: string): void {
-    // Evict if full
-    if (this.ring.length >= this.maxSize) {
-      const oldest = this.ring.shift();
-      if (oldest) {
-        this.index.delete(oldest.event.id);
-        const sess = this.sessions.get(oldest.sessionId);
-        sess?.delete(oldest.event.id);
-        if (sess?.size === 0) this.sessions.delete(oldest.sessionId);
-      }
-    }
-
-    const stored: StoredEvent = {
-      event,
-      receivedAt: new Date().toISOString(),
+  save(event: GuardianEvent, sessionId: string, user?: StoredEvent["user"]): void {
+    db.insert(schema.events).values({
+      id:          event.id,
       sessionId,
-    };
-    this.ring.push(stored);
-    this.index.set(event.id, stored);
-
-    let sessSet = this.sessions.get(sessionId);
-    if (!sessSet) { sessSet = new Set(); this.sessions.set(sessionId, sessSet); }
-    sessSet.add(event.id);
+      kind:        event.category,
+      environment: (event as { environment?: string }).environment ?? "unknown",
+      payload:     JSON.stringify(event),
+      receivedAt:  new Date().toISOString(),
+      userId:      user?.id    ?? null,
+      userEmail:   user?.email ?? null,
+      userName:    user?.name  ?? null,
+    })
+    // Silently ignore duplicate IDs (idempotent ingestion)
+    .onConflictDoNothing()
+    .run();
   }
 
   getById(id: string): StoredEvent | undefined {
-    return this.index.get(id);
+    const row = db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.id, id))
+      .get();
+
+    return row ? rowToStoredEvent(row) : undefined;
   }
 
-  /**
-   * Returns up to `limit` most-recent events, newest first.
-   * Optionally filtered by category.
-   */
   recent(limit: number, category?: GuardianEvent["category"]): StoredEvent[] {
-    const all = category
-      ? this.ring.filter((s) => s.event.category === category)
-      : [...this.ring];
-    return all.reverse().slice(0, limit);
+    const query = db
+      .select()
+      .from(schema.events)
+      .orderBy(desc(schema.events.receivedAt))
+      .limit(limit);
+
+    const rows = query.all();
+
+    return rows
+      .filter((r) => !category || r.kind === category)
+      .map(rowToStoredEvent);
   }
 
-  /** All events for a given session id, newest first. */
   bySession(sessionId: string): StoredEvent[] {
-    const ids = this.sessions.get(sessionId);
-    if (!ids) return [];
-    return [...ids]
-      .map((id) => this.index.get(id))
-      .filter((s): s is StoredEvent => s !== undefined)
-      .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+    return db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.sessionId, sessionId))
+      .orderBy(desc(schema.events.receivedAt))
+      .all()
+      .map(rowToStoredEvent);
   }
 
   list(page: number, pageSize: number): { data: StoredEvent[]; total: number } {
-    const sorted = [...this.ring]
-      .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-    return {
-      data: sorted.slice((page - 1) * pageSize, page * pageSize),
-      total: sorted.length,
-    };
+    const offset = (page - 1) * pageSize;
+
+    const data = db
+      .select()
+      .from(schema.events)
+      .orderBy(desc(schema.events.receivedAt))
+      .limit(pageSize)
+      .offset(offset)
+      .all()
+      .map(rowToStoredEvent);
+
+    const totalRow = db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.events)
+      .get();
+
+    return { data, total: totalRow?.count ?? 0 };
   }
 
-  get size(): number { return this.ring.length; }
+  get size(): number {
+    return db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.events)
+      .get()?.count ?? 0;
+  }
+}
+
+// ─── Helper ────────────────────────────────────────────────────────────────
+
+function rowToStoredEvent(row: typeof schema.events.$inferSelect): StoredEvent {
+  return {
+    event:      JSON.parse(row.payload) as GuardianEvent,
+    receivedAt: row.receivedAt,
+    sessionId:  row.sessionId,
+    user: (row.userId ?? row.userEmail ?? row.userName)
+      ? { id: row.userId ?? undefined, email: row.userEmail ?? undefined, name: row.userName ?? undefined }
+      : undefined,
+  };
 }
