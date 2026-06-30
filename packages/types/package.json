@@ -1,0 +1,31 @@
+{
+  "name": "@frontend-guardian/types",
+  "version": "0.1.0",
+  "description": "Shared TypeScript types for Frontend Guardian",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "tsup": "*",
+    "typescript": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

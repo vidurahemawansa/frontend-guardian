@@ -1,0 +1,41 @@
+{
+  "name": "@frontend-guardian/sdk",
+  "version": "0.1.0",
+  "description": "Browser SDK for Frontend Guardian – captures errors and sends them to your Guardian server",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@frontend-guardian/types": "*"
+  },
+  "devDependencies": {
+    "tsup": "*",
+    "typescript": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "frontend",
+    "error-monitoring",
+    "sdk",
+    "browser"
+  ]
+}

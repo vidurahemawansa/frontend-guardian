@@ -1,0 +1,81 @@
+name: Publish to npm
+
+# ─── Trigger ──────────────────────────────────────────────────────────────────
+# Push a git tag like  v0.2.0  to release.
+# The tag becomes the published npm version.
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"        # v1.2.3
+      - "v[0-9]+.[0-9]+.[0-9]+-*"      # v1.2.3-beta.1
+
+# ─── Permissions ─────────────────────────────────────────────────────────────
+permissions:
+  contents: read
+  id-token: write   # required for npm provenance
+
+# ─── Jobs ────────────────────────────────────────────────────────────────────
+jobs:
+  publish:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Node + npm cache
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      # 3. Install all workspace deps (root + all packages)
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Extract the version from the git tag  (v1.2.3 → 1.2.3)
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $VERSION"
+
+      # 5. Stamp version + fix cross-package deps
+      - name: Prepare package versions
+        run: node scripts/prepare-publish.js ${{ steps.version.outputs.VERSION }}
+
+      # 6. Build packages in dependency order (types must be built first)
+      - name: Build @frontend-guardian/types
+        working-directory: packages/types
+        run: npm run build
+
+      - name: Build @frontend-guardian/sdk
+        working-directory: packages/sdk
+        run: npm run build
+
+      # 7. Publish types first (sdk depends on it)
+      - name: Publish @frontend-guardian/types
+        working-directory: packages/types
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # 8. Publish sdk
+      - name: Publish @frontend-guardian/sdk
+        working-directory: packages/sdk
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # 9. Create a GitHub Release so users can see the changelog
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          tag_name: ${{ github.ref_name }}
