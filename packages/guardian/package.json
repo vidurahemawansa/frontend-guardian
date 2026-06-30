@@ -14,6 +14,9 @@
   },
   "files": ["dist"],
   "sideEffects": false,
+  "bin": {
+    "frontend-guardian": "./dist/cli.js"
+  },
   "scripts": {
     "build":     "tsup",
     "dev":       "tsup --watch",
