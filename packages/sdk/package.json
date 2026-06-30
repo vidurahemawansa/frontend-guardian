@@ -31,7 +31,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vidurahemawansa/frontend-guardian",
+    "url": "git+https://github.com/vidurahemawansa/frontend-guardian.git",
     "directory": "packages/sdk"
   },
   "publishConfig": {

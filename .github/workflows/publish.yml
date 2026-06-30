@@ -62,14 +62,26 @@ jobs:
       # 7. Publish types first (sdk depends on it)
       - name: Publish @frontend-guardian/types
         working-directory: packages/types
-        run: npm publish --provenance --access public
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view @frontend-guardian/types@$VERSION version 2>/dev/null; then
+            echo "⏭️  @frontend-guardian/types@$VERSION already published, skipping."
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # 8. Publish sdk
       - name: Publish @frontend-guardian/sdk
         working-directory: packages/sdk
-        run: npm publish --provenance --access public
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view @frontend-guardian/sdk@$VERSION version 2>/dev/null; then
+            echo "⏭️  @frontend-guardian/sdk@$VERSION already published, skipping."
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
