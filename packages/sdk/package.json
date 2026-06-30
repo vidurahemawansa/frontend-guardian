@@ -29,6 +29,11 @@
     "tsup": "*",
     "typescript": "*"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vidurahemawansa/frontend-guardian",
+    "directory": "packages/sdk"
+  },
   "publishConfig": {
     "access": "public"
   },
