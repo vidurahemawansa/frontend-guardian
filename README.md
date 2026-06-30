@@ -1,192 +1,200 @@
 # 🛡️ Frontend Guardian
 
-AI-powered frontend monitoring that detects errors, performance issues, and scalability anti-patterns — then tells you exactly how to fix them.
+> AI-powered frontend monitoring that detects errors, performance issues, and scalability anti-patterns — then tells you exactly how to fix them.
 
-[![npm version](https://img.shields.io/npm/v/@frontend-guardian/sdk)](https://www.npmjs.com/package/@frontend-guardian/sdk)
-[![CI](https://github.com/YOUR_USERNAME/frontend-guardian/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/frontend-guardian/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/frontend-guardian)](https://www.npmjs.com/package/frontend-guardian)
+[![CI](https://github.com/vidurahemawansa/frontend-guardian/actions/workflows/ci.yml/badge.svg)](https://github.com/vidurahemawansa/frontend-guardian/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## What it does
+## Get started in 3 steps
 
-Install the SDK into any web app. It captures:
+### Step 1 — Start the server & dashboard
 
-- **Errors** — `window.onerror`, unhandled rejections, stack traces
-- **Performance** — LCP, FID, CLS, slow API calls, long tasks, memory growth
-- **Scalability** — over-fetching, large payloads, missing pagination, polling patterns
+> Requires [Docker Desktop](https://www.docker.com/products/docker-desktop). One-time install.
 
-Events are sent to your Guardian server, which runs 33 detection rules across 6 categories (Error, Performance, Scalability, React, Angular, Next.js) and produces a **Health Score** with actionable fixes.
+```bash
+npx frontend-guardian@latest init
+```
+
+This single command will:
+- ✅ Check Docker is running
+- ✅ Auto-generate a secure API key
+- ✅ Write `docker-compose.yml` and `.env`
+- ✅ Start the server and dashboard
+- ✅ Print the exact code snippet to paste into your app
+
+| Service   | URL                   |
+|-----------|-----------------------|
+| Dashboard | http://localhost:3000 |
+| API       | http://localhost:4000 |
+
+---
+
+### Step 2 — Install the SDK
+
+```bash
+npm install frontend-guardian
+```
+
+---
+
+### Step 3 — Add one line to your app
+
+```ts
+import { initFrontendGuardian } from "frontend-guardian";
+
+initFrontendGuardian({
+  apiUrl:      "http://localhost:4000",   // shown after Step 1
+  apiKey:      "your-generated-api-key", // shown after Step 1
+  environment: "production",
+});
+```
+
+Open **http://localhost:3000** — your Health Score dashboard is live. 🎉
+
+---
+
+## What you get
 
 ```
 Project Health: 91 / 100
 
-🟢 Errors       — Excellent
+🟢 Errors       — Excellent        (0 Critical)
 🟡 Performance  — 2 Suggestions
 🔵 Scalability  — 4 Suggestions
 🟢 Architecture — Excellent
 ```
 
+Click any category to see the exact issue and recommended fix:
+
+```
+🔵 Scalability — Detailed Issues
+
+⚠ WARNING  ×3
+You loaded 3,200 records without pagination.
+
+Recommended Fix:
+▸ Implement server-side pagination
+▸ Add virtual scrolling (react-window)
+▸ Cache results with React Query
+```
+
+Frontend Guardian captures:
+
+| Category | What it detects |
+|---|---|
+| **Errors** | `window.onerror`, unhandled rejections, stack traces |
+| **Performance** | LCP, FID, CLS, slow API calls, long tasks, memory growth |
+| **Scalability** | Over-fetching, large payloads, missing pagination, polling |
+| **Architecture** | React, Angular, Next.js anti-patterns (33 built-in rules) |
+
 ---
 
-## Quick Start
-
-### 1. Run the server & dashboard
-
-The server and dashboard are distributed as Docker images.
-
-```bash
-# Download the config template
-curl -o .env https://raw.githubusercontent.com/YOUR_USERNAME/frontend-guardian/main/.env.guardian
-
-# Generate a secure API key and paste it into .env
-openssl rand -hex 32
-
-# Edit .env  →  set GUARDIAN_API_KEY=<the key you just generated>
-nano .env
-
-# Start everything
-curl -o docker-compose.yml https://raw.githubusercontent.com/YOUR_USERNAME/frontend-guardian/main/docker-compose.yml
-docker compose up -d
-```
-
-| Service   | URL                    |
-|-----------|------------------------|
-| Dashboard | http://localhost:3000  |
-| API       | http://localhost:4000  |
-
-### 2. Install the SDK
-
-```bash
-npm install @frontend-guardian/sdk
-```
-
-### 3. Initialize in your app
+## Identify users
 
 ```ts
-import { initFrontendGuardian } from "@frontend-guardian/sdk";
-
-initFrontendGuardian({
-  apiUrl:                  "http://localhost:4000",   // your Guardian server
-  apiKey:                  "your-secret-api-key-here",
-  environment:             "production",
-  enabled:                 true,
-  enablePerformanceTracking: true,
+// After login — attaches user context to every event
+guardian.setUser({
+  id:       "u_123",
+  email:    "alice@example.com",
+  username: "alice",
 });
-```
 
-That's it. Open **http://localhost:3000** to see your Health Score.
-
----
-
-## SDK Configuration
-
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `apiUrl` | `string` | — | **Required.** URL of your Guardian server |
-| `apiKey` | `string` | `""` | Must match `GUARDIAN_API_KEY` on the server |
-| `environment` | `"dev" \| "prod"` | `"dev"` | Tags every event with the environment |
-| `enabled` | `boolean` | `true` | Master switch — set `false` to disable in local dev |
-| `enablePerformanceTracking` | `boolean` | `true` | Web Vitals, long tasks, memory monitoring |
-
-### Manual capture
-
-```ts
-import { initFrontendGuardian } from "@frontend-guardian/sdk";
-
-const guardian = initFrontendGuardian({ ... });
-
-// Capture a custom error
-guardian.captureError(new Error("Payment failed"), { userId: "u_123" });
-
-// Capture a message
-guardian.captureMessage("Checkout completed", "info");
+// After logout
+guardian.clearUser();
 ```
 
 ---
 
-## Dashboard API
+## Alerting
 
-The server exposes a REST API you can query directly:
+Get notified on Slack or any webhook when critical issues are detected.
+
+Add to your `.env` (in the `guardian/` folder created by `init`):
 
 ```bash
-# Health score (instant, no AI)
-curl http://localhost:4000/health/score
+# Slack
+ALERT_SLACK_WEBHOOK=https://hooks.slack.com/services/T.../B.../...
 
-# Drill into one category
-curl http://localhost:4000/health/score/scalability
+# Or any generic webhook (Discord, PagerDuty, etc.)
+ALERT_WEBHOOK_URL=https://your-service.com/hooks/guardian
 
-# List recent events
-curl http://localhost:4000/events?page=1&pageSize=20
+# Only alert on error + critical (default)
+ALERT_MIN_SEVERITY=error
+```
 
-# AI-generated health summary (requires AI_ENABLED=true)
-curl http://localhost:4000/health/ai
+Then restart:
+```bash
+docker compose -f guardian/docker-compose.yml up -d
+```
+
+---
+
+## AI-powered explanations (optional)
+
+Enable AI to get plain-English explanations and Cursor AI prompts for every issue.
+
+```bash
+# In guardian/.env
+AI_ENABLED=true
+AI_PROVIDER=gemini    # openai | claude | gemini | ollama
+AI_API_KEY=your-key
+```
+
+| Provider | `AI_PROVIDER` | Free tier |
+|---|---|---|
+| Google Gemini | `gemini` | ✅ Yes (1M tokens/day) |
+| Ollama (local) | `ollama` | ✅ Yes (runs on your machine) |
+| OpenAI GPT-4o | `openai` | ❌ Pay-per-use |
+| Anthropic Claude | `claude` | ❌ Pay-per-use |
+
+---
+
+## SDK configuration
+
+```ts
+initFrontendGuardian({
+  apiUrl:                    "http://localhost:4000", // required
+  apiKey:                    "your-api-key",          // required
+  environment:               "production",            // "dev" | "prod"
+  enabled:                   true,                    // master switch
+  enablePerformanceTracking: true,                    // Web Vitals + long tasks
+});
 ```
 
 ---
 
 ## Updating
 
-When a new version of Frontend Guardian is released:
-
-**SDK** — bump the version in your app's `package.json`:
+**SDK** — get the latest version:
 ```bash
-npm update @frontend-guardian/sdk
+npm update frontend-guardian
 ```
 
-**Server + Dashboard** — pull the latest Docker images:
+**Server & Dashboard** — pull new Docker images:
 ```bash
-docker compose pull
-docker compose up -d
+docker compose -f guardian/docker-compose.yml pull
+docker compose -f guardian/docker-compose.yml up -d
 ```
 
 ---
 
-## AI Analysis (optional)
+## Share with your team
 
-Frontend Guardian can use an LLM to explain issues in plain English and generate Cursor AI prompts to fix them.
+By default the dashboard runs on `localhost` — only you can see it.
 
-Set these in your `.env`:
-
-```bash
-AI_ENABLED=true
-AI_PROVIDER=openai        # openai | claude | gemini | ollama
-AI_API_KEY=sk-...
-```
-
-| Provider | `AI_PROVIDER` | Free tier |
-|---|---|---|
-| OpenAI GPT-4o | `openai` | No (pay-per-use) |
-| Anthropic Claude | `claude` | No |
-| Google Gemini | `gemini` | Yes (1M tokens/day) |
-| Ollama (local) | `ollama` | Yes (runs on your machine) |
-
-Gemini or Ollama are recommended for getting started for free.
-
----
-
-## Self-hosting on a server
-
-To make the dashboard accessible to your whole team, deploy to a VPS or cloud provider:
-
-```bash
-# On your server
-git clone https://github.com/YOUR_USERNAME/frontend-guardian
-cd frontend-guardian
-cp .env.guardian .env
-# Edit .env with your API key and domain
-
-docker compose up -d
-```
-
-Then point the SDK to your server's public URL:
+To give your whole team access, deploy the server to a cloud host and point the SDK at the public URL:
 
 ```ts
 initFrontendGuardian({
-  apiUrl: "https://guardian.yourdomain.com",
-  apiKey: "your-secret-api-key",
+  apiUrl: "https://guardian.yourcompany.com", // your deployed server
+  apiKey: "your-api-key",
 });
 ```
+
+See [self-hosting guide →](https://github.com/vidurahemawansa/frontend-guardian/wiki/Self-Hosting) for Railway, Render, and VPS instructions.
 
 ---
 
@@ -195,31 +203,26 @@ initFrontendGuardian({
 ```
 frontend-guardian/
 ├── packages/
-│   ├── types/       # Shared TypeScript types  →  npm: @frontend-guardian/types
-│   ├── sdk/         # Browser SDK              →  npm: @frontend-guardian/sdk
-│   ├── server/      # Node.js analysis server  →  Docker
-│   └── dashboard/   # React dashboard UI       →  Docker (nginx)
-├── .github/
-│   └── workflows/
-│       ├── ci.yml       # Run on every PR
-│       └── publish.yml  # Publish to npm on git tag
-└── docker-compose.yml
+│   ├── guardian/    # Meta-package → npm: frontend-guardian
+│   ├── sdk/         # Browser SDK  → npm: @frontend-guardian/sdk
+│   ├── types/       # Shared types → npm: @frontend-guardian/types
+│   ├── server/      # Analysis server            (Docker)
+│   └── dashboard/   # React dashboard (nginx)    (Docker)
+└── .github/workflows/
+    ├── ci.yml        # Typecheck on every PR
+    └── publish.yml   # Publish to npm on git tag
 ```
 
 ---
 
-## Contributing & releasing
+## Releasing a new version
 
 ```bash
-# Make your changes, then tag a release:
-git tag v0.2.0
-git push origin v0.2.0
+git tag v1.2.3
+git push origin v1.2.3
 ```
 
-GitHub Actions will automatically:
-1. Build `@frontend-guardian/types` and `@frontend-guardian/sdk`
-2. Publish both to npm
-3. Create a GitHub Release with auto-generated notes
+GitHub Actions automatically builds and publishes all packages to npm and creates a GitHub Release.
 
 ---
 
