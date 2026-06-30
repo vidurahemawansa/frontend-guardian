@@ -34,3 +34,8 @@ Thumbs.db
 
 # Testing
 coverage/
+
+# SQLite database files (runtime data — never commit)
+*.db
+*.db-shm
+*.db-wal
